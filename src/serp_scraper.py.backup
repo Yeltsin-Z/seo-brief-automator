@@ -1,0 +1,276 @@
+import time
+import logging
+from typing import List, Dict, Any
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+import requests
+
+from config.config import Config
+from src.utils import Utils
+
+logger = logging.getLogger(__name__)
+
+class SERPScraper:
+    """Scrapes Google SERP results for a given keyword"""
+    
+    def __init__(self):
+        self.driver = None
+        self.setup_driver()
+    
+    def setup_driver(self):
+        """Setup Chrome WebDriver with appropriate options"""
+        try:
+            chrome_options = Options()
+            
+            if Config.SELENIUM_HEADLESS:
+                chrome_options.add_argument("--headless")
+            
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument(f"--user-agent={Config.USER_AGENT}")
+            
+            # Disable images and CSS for faster loading
+            chrome_options.add_argument("--disable-images")
+            chrome_options.add_argument("--disable-javascript")
+            
+            from selenium.webdriver.chrome.service import Service
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                ChromeDriverManager().install(),
+                options=chrome_options
+            )
+            self.driver.set_page_load_timeout(Config.SELENIUM_TIMEOUT)
+            
+        except Exception as e:
+            logger.error(f"Failed to setup Chrome driver: {e}")
+            raise
+    
+    def search_google(self, keyword: str) -> List[Dict[str, Any]]:
+        """Search Google for the keyword and extract top results"""
+        try:
+            # Construct Google search URL
+            search_url = f"https://www.google.com/search?q={keyword.replace(' ', '+')}&num={Config.SERP_RESULTS_COUNT}"
+            
+            logger.info(f"Searching Google for: {keyword}")
+            self.driver.get(search_url)
+            
+            # Wait for search results to load
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, "search"))
+            )
+            
+            # Extract search results
+            results = self.extract_search_results()
+            
+            logger.info(f"Found {len(results)} search results")
+            return results
+            
+        except TimeoutException:
+            logger.error("Timeout waiting for search results to load")
+            return []
+        except Exception as e:
+            logger.error(f"Error during Google search: {e}")
+            return []
+    
+    def extract_search_results(self) -> List[Dict[str, Any]]:
+        """Extract search results from Google SERP"""
+        results = []
+        
+        try:
+            # Find all search result containers
+            search_results = self.driver.find_elements(By.CSS_SELECTOR, "div.g")
+            
+            for result in search_results[:Config.SERP_RESULTS_COUNT]:
+                try:
+                    result_data = self.extract_single_result(result)
+                    if result_data:
+                        results.append(result_data)
+                except Exception as e:
+                    logger.warning(f"Error extracting single result: {e}")
+                    continue
+            
+        except Exception as e:
+            logger.error(f"Error extracting search results: {e}")
+        
+        return results
+    
+    def extract_single_result(self, result_element) -> Dict[str, Any]:
+        """Extract data from a single search result"""
+        try:
+            # Extract title and URL
+            title_element = result_element.find_element(By.CSS_SELECTOR, "h3")
+            title = title_element.text.strip()
+            
+            link_element = result_element.find_element(By.CSS_SELECTOR, "a")
+            url = link_element.get_attribute("href")
+            
+            # Extract snippet
+            snippet = ""
+            try:
+                snippet_element = result_element.find_element(By.CSS_SELECTOR, "div.VwiC3b")
+                snippet = snippet_element.text.strip()
+            except NoSuchElementException:
+                pass
+            
+            # Extract domain
+            domain = Utils.extract_domain(url)
+            
+            return {
+                "title": title,
+                "url": url,
+                "snippet": snippet,
+                "domain": domain,
+                "position": len(results) + 1
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error extracting result data: {e}")
+            return None
+    
+    def scrape_article_content(self, url: str) -> Dict[str, Any]:
+        """Scrape content from a specific article URL"""
+        try:
+            logger.info(f"Scraping content from: {url}")
+            
+            # Use requests for faster content scraping
+            response = Utils.make_request(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Extract main content
+            content = self.extract_main_content(soup)
+            
+            # Extract metadata
+            metadata = self.extract_metadata(soup)
+            
+            return {
+                "url": url,
+                "content": content,
+                "metadata": metadata,
+                "word_count": len(content.split()),
+                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+        except Exception as e:
+            logger.error(f"Error scraping article content from {url}: {e}")
+            return {
+                "url": url,
+                "content": "",
+                "metadata": {},
+                "word_count": 0,
+                "error": str(e)
+            }
+    
+    def extract_main_content(self, soup: BeautifulSoup) -> str:
+        """Extract main content from HTML"""
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            script.decompose()
+        
+        # Try to find main content areas
+        content_selectors = [
+            "article",
+            "main",
+            ".content",
+            ".post-content",
+            ".entry-content",
+            ".article-content",
+            "#content",
+            ".main-content"
+        ]
+        
+        content = ""
+        for selector in content_selectors:
+            elements = soup.select(selector)
+            if elements:
+                content = " ".join([elem.get_text() for elem in elements])
+                break
+        
+        # If no specific content area found, get body text
+        if not content:
+            content = soup.get_text()
+        
+        return Utils.clean_text(content)
+    
+    def extract_metadata(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """Extract metadata from HTML"""
+        metadata = {}
+        
+        # Extract title
+        title_tag = soup.find('title')
+        if title_tag:
+            metadata['title'] = title_tag.get_text().strip()
+        
+        # Extract meta description
+        meta_desc = soup.find('meta', attrs={'name': 'description'})
+        if meta_desc:
+            metadata['description'] = meta_desc.get('content', '').strip()
+        
+        # Extract meta keywords
+        meta_keywords = soup.find('meta', attrs={'name': 'keywords'})
+        if meta_keywords:
+            metadata['keywords'] = meta_keywords.get('content', '').strip()
+        
+        # Extract author
+        author_selectors = [
+            'meta[name="author"]',
+            '.author',
+            '.byline',
+            '[rel="author"]'
+        ]
+        
+        for selector in author_selectors:
+            author_elem = soup.select_one(selector)
+            if author_elem:
+                if author_elem.name == 'meta':
+                    metadata['author'] = author_elem.get('content', '').strip()
+                else:
+                    metadata['author'] = author_elem.get_text().strip()
+                break
+        
+        return metadata
+    
+    def scrape_top_articles(self, keyword: str) -> List[Dict[str, Any]]:
+        """Main method to scrape top articles for a keyword"""
+        try:
+            # Get search results
+            search_results = self.search_google(keyword)
+            
+            if not search_results:
+                logger.warning("No search results found")
+                return []
+            
+            # Scrape content from each result
+            articles = []
+            for result in search_results:
+                article_data = self.scrape_article_content(result['url'])
+                article_data.update(result)
+                articles.append(article_data)
+                
+                # Add delay to be respectful
+                time.sleep(1)
+            
+            logger.info(f"Successfully scraped {len(articles)} articles")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error in scrape_top_articles: {e}")
+            return []
+    
+    def close(self):
+        """Close the WebDriver"""
+        if self.driver:
+            self.driver.quit()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close() 
