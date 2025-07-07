@@ -11,6 +11,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import requests
+import os
 
 from config.config import Config
 from src.utils import Utils
@@ -39,10 +40,24 @@ class SERPScraper:
             user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             chrome_options.add_argument(f"--user-agent={user_agent}")
             chrome_options.add_argument("--disable-images")
-            # Use /usr/bin/chromium and /usr/bin/chromedriver for Render
-            chrome_options.binary_location = "/usr/bin/chromium"
-            driver_path = "/usr/bin/chromedriver"
-            logger.info(f"Using ChromeDriver at: {driver_path}")
+
+            # Robust detection of Chromium and Chromedriver paths
+            chromium_paths = [
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/snap/bin/chromium"
+            ]
+            chromedriver_paths = [
+                "/usr/bin/chromedriver",
+                "/usr/lib/chromium-browser/chromedriver"
+            ]
+            chrome_binary = next((p for p in chromium_paths if os.path.exists(p)), None)
+            driver_path = next((p for p in chromedriver_paths if os.path.exists(p)), None)
+            logger.info(f"Checked Chromium paths: {chromium_paths}, found: {chrome_binary}")
+            logger.info(f"Checked Chromedriver paths: {chromedriver_paths}, found: {driver_path}")
+            if not chrome_binary or not driver_path:
+                raise RuntimeError(f'Chromium or Chromedriver not found. Checked: {chromium_paths}, {chromedriver_paths}')
+            chrome_options.binary_location = chrome_binary
             service = Service(driver_path)
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
