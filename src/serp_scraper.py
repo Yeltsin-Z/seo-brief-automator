@@ -28,10 +28,7 @@ class SERPScraper:
         """Setup Chrome WebDriver with appropriate options"""
         try:
             chrome_options = Options()
-            
-            if Config.SELENIUM_HEADLESS:
-                chrome_options.add_argument("--headless")
-            
+            chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
@@ -39,27 +36,17 @@ class SERPScraper:
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
-            
-            # Use a more realistic user agent
             user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             chrome_options.add_argument(f"--user-agent={user_agent}")
-            
-            # Disable images for faster loading but keep JavaScript for dynamic content
             chrome_options.add_argument("--disable-images")
-            # Don't disable JavaScript as it's needed for Google search results
-            
-            # Explicitly set binary and driver path for Render
-            chrome_options.binary_location = "/usr/bin/chromium-browser"
+            # Use /usr/bin/chromium and /usr/bin/chromedriver for Render
+            chrome_options.binary_location = "/usr/bin/chromium"
             driver_path = "/usr/bin/chromedriver"
             logger.info(f"Using ChromeDriver at: {driver_path}")
             service = Service(driver_path)
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            
-            # Execute script to remove webdriver property
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
             self.driver.set_page_load_timeout(Config.SELENIUM_TIMEOUT)
-            
         except Exception as e:
             logger.error(f"Failed to setup Chrome driver: {e}")
             raise
