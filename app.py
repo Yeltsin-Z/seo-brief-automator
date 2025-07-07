@@ -591,9 +591,9 @@ def download_step3_docx():
             return jsonify({'error': 'Step 3 must be completed first'}), 400
         serp_brief = current_job.get('serp_brief', {})
         content = serp_brief.get('raw_markdown', '')
-        focus_keyword = serp_brief.get('focus_keyword', 'N/A')
         if not content:
             return jsonify({'error': 'No SERP analysis content available'}), 400
+        focus_keyword = serp_brief.get('focus_keyword', 'N/A')
         output_dir = 'output'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -628,12 +628,12 @@ def download_final_docx():
             return jsonify({'error': 'All steps must be completed first'}), 400
         final_brief = current_job.get('final_brief', {})
         content = final_brief.get('raw_markdown', final_brief.get('content', ''))
+        if not content:
+            return jsonify({'error': 'No final brief content available'}), 400
         focus_keyword = final_brief.get('focus_keyword', 'N/A')
         topic_theme = final_brief.get('topic_theme', 'N/A')
         buyer_persona = final_brief.get('buyer_persona', 'N/A')
         content_id = final_brief.get('content_id', 'N/A')
-        if not content:
-            return jsonify({'error': 'No final brief content available'}), 400
         output_dir = 'output'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -776,12 +776,12 @@ def download_step2_docx():
         
         ugc_brief = current_job.get('ugc_brief', {})
         content = ugc_brief.get('raw_markdown', '')
+        if not content:
+            return jsonify({'error': 'No UGC research content available'}), 400
+        
         focus_keyword = ugc_brief.get('focus_keyword', 'N/A')
         topic_theme = ugc_brief.get('topic_theme', 'N/A')
         buyer_persona = ugc_brief.get('buyer_persona', 'N/A')
-        
-        if not content:
-            return jsonify({'error': 'No UGC research content available'}), 400
         
         output_dir = 'output'
         if not os.path.exists(output_dir):
