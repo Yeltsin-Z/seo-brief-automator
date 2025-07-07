@@ -73,33 +73,26 @@ def get_api_request_status():
     }
 
 def run_step_1_serp_scraping(focus_keyword, topic_theme, buyer_persona, content_id):
-    """Step 1: Collect top 10 SERP results using Selenium"""
+    """Step 1: Collect top 10 SERP results using SerpAPI"""
     global current_job
-    
     try:
         current_job['status'] = 'running'
         current_job['step'] = 'serp'
         current_job['progress'] = 0
         current_job['message'] = 'Step 1: Collecting top 10 SERP results...'
         current_job['error'] = None
-        
-        # Store parameters for later use
         current_job['focus_keyword'] = focus_keyword
         current_job['topic_theme'] = topic_theme
         current_job['buyer_persona'] = buyer_persona
         current_job['content_id'] = content_id
-        
         # Use SERP scraper to get top 10 results
-        with SERPScraper() as scraper:
-            serp_results = scraper.search_google(focus_keyword)
-        
+        scraper = SERPScraper()
+        serp_results = scraper.search_google(focus_keyword)
         current_job['serp_results'] = serp_results
         current_job['progress'] = 25
         current_job['message'] = f'Step 1 Complete: Found {len(serp_results)} SERP results. Ready for UGC research.'
         current_job['step'] = 'serp_complete'
-        
         logger.info(f"Step 1 completed: Found {len(serp_results)} SERP results")
-        
     except Exception as e:
         logger.error(f"Error in Step 1 (SERP scraping): {e}")
         current_job['status'] = 'error'

@@ -39,8 +39,8 @@ class BriefGenerator:
             
             # Step 1: Scrape top SERP results
             logger.info("Step 1: Scraping top SERP results...")
-            with SERPScraper() as scraper:
-                articles = scraper.scrape_top_articles(focus_keyword)
+            scraper = SERPScraper()
+            articles = scraper.scrape_top_articles(focus_keyword)
             
             brief_data['serp_analysis'] = {
                 'articles_found': len(articles),
@@ -73,16 +73,10 @@ class BriefGenerator:
             return brief_data
             
         except Exception as e:
-            logger.error(f"Error in brief generation: {e}")
+            logger.error(f"Error generating brief: {e}")
             return {
-                'focus_keyword': focus_keyword,
-                'topic_theme': topic_theme,
-                'buyer_persona': buyer_persona,
-                'content_id': content_id,
-                'custom_prompt': custom_prompt,
                 'error': str(e),
-                'status': 'failed',
-                'generated_at': datetime.now().isoformat()
+                'status': 'error'
             }
     
     def create_comprehensive_brief(self, brief_data: Dict[str, Any]) -> Dict[str, Any]:

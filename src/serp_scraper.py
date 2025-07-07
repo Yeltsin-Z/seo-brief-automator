@@ -1,216 +1,46 @@
 import time
 import logging
 from typing import List, Dict, Any
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import requests
-import os
-
+from serpapi import GoogleSearch
 from config.config import Config
 from src.utils import Utils
 
 logger = logging.getLogger(__name__)
 
 class SERPScraper:
-    """Scrapes Google SERP results for a given keyword"""
+    """Scrapes Google SERP results for a given keyword using SerpAPI"""
     
     def __init__(self):
-        self.driver = None
-        self.setup_driver()
-    
-    def setup_driver(self):
-        """Setup Chrome WebDriver with appropriate options"""
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
-            user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            chrome_options.add_argument(f"--user-agent={user_agent}")
-            chrome_options.add_argument("--disable-images")
-
-            # Robust detection of Chromium and Chromedriver paths
-            chromium_paths = [
-                "/usr/bin/chromium",
-                "/usr/bin/chromium-browser",
-                "/snap/bin/chromium"
-            ]
-            chromedriver_paths = [
-                "/usr/bin/chromedriver",
-                "/usr/lib/chromium-browser/chromedriver"
-            ]
-            chrome_binary = next((p for p in chromium_paths if os.path.exists(p)), None)
-            driver_path = next((p for p in chromedriver_paths if os.path.exists(p)), None)
-            logger.info(f"Checked Chromium paths: {chromium_paths}, found: {chrome_binary}")
-            logger.info(f"Checked Chromedriver paths: {chromedriver_paths}, found: {driver_path}")
-            if not chrome_binary or not driver_path:
-                raise RuntimeError(f'Chromium or Chromedriver not found. Checked: {chromium_paths}, {chromedriver_paths}')
-            chrome_options.binary_location = chrome_binary
-            service = Service(driver_path)
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            self.driver.set_page_load_timeout(Config.SELENIUM_TIMEOUT)
-        except Exception as e:
-            logger.error(f"Failed to setup Chrome driver: {e}")
-            raise
+        self.api_key = "6ac9cbc80ee7f65c249cf87b0abfb6c2ad19bd2cc9a9f75fa67f96aad673d53e"
     
     def search_google(self, keyword: str) -> List[Dict[str, Any]]:
-        """Search Google for the keyword and extract top results"""
+        """Search Google for the keyword and extract top results using SerpAPI"""
         try:
-            # Construct Google search URL with US locale
-            search_url = f"https://www.google.com/search?q={keyword.replace(' ', '+')}&num={Config.SERP_RESULTS_COUNT}&hl=en&gl=US"
-            
-            logger.info(f"Searching Google for: {keyword}")
-            self.driver.get(search_url)
-            
-            # Wait for search results to load with longer timeout
-            try:
-                WebDriverWait(self.driver, 15).until(
-                    EC.presence_of_element_located((By.ID, "search"))
-                )
-            except TimeoutException:
-                # Try alternative selectors
-                try:
-                    WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div#rso"))
-                    )
-                except TimeoutException:
-                    logger.error("Timeout waiting for search results to load")
-                    return []
-            
-            # Additional wait for dynamic content
-            time.sleep(2)
-            
-            # Extract search results
-            results = self.extract_search_results()
-            
-            logger.info(f"Found {len(results)} search results")
-            return results
-            
-        except TimeoutException:
-            logger.error("Timeout waiting for search results to load")
+            params = {
+                "engine": "google",
+                "q": keyword,
+                "hl": "en",
+                "gl": "us",
+                "num": 10,
+                "api_key": self.api_key
+            }
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            serp_results = []
+            for result in results.get("organic_results", []):
+                serp_results.append({
+                    "title": result.get("title"),
+                    "url": result.get("link"),
+                    "snippet": result.get("snippet"),
+                    "domain": result.get("displayed_link")
+                })
+            logger.info(f"Found {len(serp_results)} search results from SerpAPI")
+            return serp_results
+        except Exception as e:
+            logger.error(f"Error during Google search with SerpAPI: {e}")
             return []
-        except Exception as e:
-            logger.error(f"Error during Google search: {e}")
-            return []
-    
-    def extract_search_results(self) -> List[Dict[str, Any]]:
-        """Extract search results from Google SERP"""
-        results = []
-        
-        try:
-            # Try multiple selectors for search results
-            selectors = [
-                "div.g",
-                "div[data-sokoban-container]",
-                "div.tF2Cxc",
-                "div.yuRUbf",
-                "div.rc",
-                "div[jscontroller]"
-            ]
-            
-            search_results = []
-            for selector in selectors:
-                search_results = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                if search_results:
-                    logger.info(f"Found {len(search_results)} results using selector: {selector}")
-                    break
-            
-            if not search_results:
-                # Try a more general approach
-                search_results = self.driver.find_elements(By.CSS_SELECTOR, "div")
-                search_results = [r for r in search_results if r.get_attribute("data-sokoban-container") or 
-                                r.find_elements(By.CSS_SELECTOR, "h3, a[href*='http']")]
-                logger.info(f"Found {len(search_results)} results using general selector")
-            
-            if not search_results:
-                logger.warning("No search results found with any selector")
-                return []
-            
-            for i, result in enumerate(search_results[:Config.SERP_RESULTS_COUNT]):
-                try:
-                    result_data = self.extract_single_result(result, i + 1)
-                    if result_data:
-                        results.append(result_data)
-                except Exception as e:
-                    logger.warning(f"Error extracting single result: {e}")
-                    continue
-            
-        except Exception as e:
-            logger.error(f"Error extracting search results: {e}")
-        
-        return results
-    
-    def extract_single_result(self, result_element, position: int) -> Dict[str, Any]:
-        """Extract data from a single search result"""
-        try:
-            # Try multiple selectors for title
-            title_selectors = ["h3", "h3.LC20lb", "h3.DK0T8d"]
-            title = ""
-            for selector in title_selectors:
-                try:
-                    title_element = result_element.find_element(By.CSS_SELECTOR, selector)
-                    title = title_element.text.strip()
-                    if title:
-                        break
-                except NoSuchElementException:
-                    continue
-            
-            # Try multiple selectors for link
-            link_selectors = ["a", "a[href]", "a[ping]"]
-            url = ""
-            for selector in link_selectors:
-                try:
-                    link_element = result_element.find_element(By.CSS_SELECTOR, selector)
-                    url = link_element.get_attribute("href")
-                    if url and url.startswith("http"):
-                        break
-                except NoSuchElementException:
-                    continue
-            
-            # Extract snippet with multiple selectors
-            snippet = ""
-            snippet_selectors = ["div.VwiC3b", "div.s3v9rd", "span.aCOpRe", "div.IsZvec"]
-            for selector in snippet_selectors:
-                try:
-                    snippet_element = result_element.find_element(By.CSS_SELECTOR, selector)
-                    snippet = snippet_element.text.strip()
-                    if snippet:
-                        break
-                except NoSuchElementException:
-                    continue
-            
-            # Extract domain
-            domain = Utils.extract_domain(url) if url else ""
-            
-            # Only return if we have at least title and URL
-            if title and url:
-                return {
-                    "title": title,
-                    "url": url,
-                    "snippet": snippet,
-                    "domain": domain,
-                    "position": position
-                }
-            else:
-                logger.warning(f"Incomplete result data: title='{title}', url='{url}'")
-                return None
-            
-        except Exception as e:
-            logger.warning(f"Error extracting result data: {e}")
-            return None
     
     def scrape_article_content(self, url: str) -> Dict[str, Any]:
         """Scrape content from a specific article URL"""
@@ -314,67 +144,11 @@ class SERPScraper:
         
         return metadata
     
-    def fallback_serp_search(self, keyword: str) -> List[Dict[str, Any]]:
-        """Fallback method using requests to get SERP results"""
-        try:
-            logger.info(f"Using fallback method for keyword: {keyword}")
-            
-            # Use a simple search approach
-            search_url = f"https://www.google.com/search?q={keyword.replace(' ', '+')}&num=10&hl=en&gl=US"
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            }
-            
-            response = requests.get(search_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            results = []
-            # Look for search result links
-            links = soup.find_all('a', href=True)
-            
-            for i, link in enumerate(links):
-                href = link.get('href', '')
-                if href.startswith('/url?q='):
-                    # Extract actual URL
-                    url = href.split('/url?q=')[1].split('&')[0]
-                    if url.startswith('http') and 'google.com' not in url:
-                        title = link.get_text().strip()
-                        if title and len(title) > 10:  # Filter out short/nonsense titles
-                            results.append({
-                                'title': title,
-                                'url': url,
-                                'snippet': '',
-                                'domain': Utils.extract_domain(url),
-                                'position': len(results) + 1
-                            })
-                            if len(results) >= 10:
-                                break
-            
-            logger.info(f"Fallback method found {len(results)} results")
-            return results
-            
-        except Exception as e:
-            logger.error(f"Error in fallback SERP search: {e}")
-            return []
-
     def scrape_top_articles(self, keyword: str) -> List[Dict[str, Any]]:
         """Main method to scrape top articles for a keyword"""
         try:
             # Get search results
             search_results = self.search_google(keyword)
-            
-            # If Selenium fails, try fallback method
-            if not search_results:
-                logger.info("Selenium method failed, trying fallback method...")
-                search_results = self.fallback_serp_search(keyword)
             
             if not search_results:
                 logger.warning("No search results found")
@@ -396,14 +170,3 @@ class SERPScraper:
         except Exception as e:
             logger.error(f"Error in scrape_top_articles: {e}")
             return []
-    
-    def close(self):
-        """Close the WebDriver"""
-        if self.driver:
-            self.driver.quit()
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()

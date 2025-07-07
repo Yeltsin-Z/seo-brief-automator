@@ -288,16 +288,11 @@ Format your response in clear markdown with proper headings and bullet points.
         """Get top 10 ranking articles from Google Search for the focus keyword"""
         try:
             logger.info(f"Getting SERP snapshot for: {focus_keyword}")
-            
-            # Use the actual SERP scraper
             from src.serp_scraper import SERPScraper
-            
-            with SERPScraper() as scraper:
-                results = scraper.search_google(focus_keyword)
-                
+            scraper = SERPScraper()
+            results = scraper.search_google(focus_keyword)
             logger.info(f"Found {len(results)} SERP results")
             return results
-            
         except Exception as e:
             logger.error(f"Error getting SERP snapshot: {e}")
             return []
