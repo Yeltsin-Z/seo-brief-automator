@@ -48,12 +48,9 @@ class SERPScraper:
             chrome_options.add_argument("--disable-images")
             # Don't disable JavaScript as it's needed for Google search results
             
-            # Use WebDriver Manager but fix the path issue
-            driver_path = ChromeDriverManager().install()
-            # Ensure we're using the chromedriver executable, not the notices file
-            if driver_path.endswith('THIRD_PARTY_NOTICES.chromedriver'):
-                driver_path = driver_path.replace('THIRD_PARTY_NOTICES.chromedriver', 'chromedriver')
-            
+            # Explicitly set binary and driver path for Render
+            chrome_options.binary_location = "/usr/bin/chromium-browser"
+            driver_path = "/usr/bin/chromedriver"
             logger.info(f"Using ChromeDriver at: {driver_path}")
             service = Service(driver_path)
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
