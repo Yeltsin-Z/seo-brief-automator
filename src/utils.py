@@ -4,7 +4,6 @@ import logging
 from typing import List, Dict, Any
 from urllib.parse import urlparse, urljoin
 import requests
-from fake_useragent import UserAgent
 from config.config import Config
 
 # Set up logging
@@ -48,13 +47,8 @@ class Utils:
     
     @staticmethod
     def get_random_user_agent() -> str:
-        """Get a random user agent string"""
-        try:
-            ua = UserAgent()
-            return ua.random
-        except Exception as e:
-            logger.warning(f"Failed to get random user agent: {e}. Using default.")
-            return Config.USER_AGENT
+        """Get user agent string"""
+        return Config.USER_AGENT
     
     @staticmethod
     def make_request(url: str, headers: Dict = None, timeout: int = None) -> requests.Response:
