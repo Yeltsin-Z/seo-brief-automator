@@ -432,8 +432,12 @@ def start_step3():
         data = request.get_json()
         custom_prompt = data.get('custom_prompt', '').strip()
         
+        logger.info(f"Step 3 validation - current step: {current_job.get('step')}, expected: ugc_complete")
+        
         if current_job['step'] != 'ugc_complete':
-            return jsonify({'error': 'Step 2 must be completed first'}), 400
+            error_msg = f'Step 2 must be completed first. Current step: {current_job.get("step")}'
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
         
         # Start Step 3 in background thread
         thread = threading.Thread(
@@ -495,6 +499,10 @@ def get_status():
     global current_job
     status_data = current_job.copy()
     status_data['api_status'] = get_api_request_status()
+    
+    # Add debugging information
+    logger.info(f"Status check - current step: {current_job.get('step')}, status: {current_job.get('status')}")
+    
     return jsonify(status_data)
 
 @app.route('/download/<filename>')
