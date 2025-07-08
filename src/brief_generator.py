@@ -16,6 +16,12 @@ class BriefGenerator:
     """Main class for generating comprehensive SEO briefs"""
     
     def __init__(self, api_increment_callback=None):
+        # Validate OpenAI API key
+        if not Config.OPENAI_API_KEY:
+            logger.error("OPENAI_API_KEY is not set in environment variables")
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        
+        logger.info(f"Initializing BriefGenerator with OpenAI API key: {Config.OPENAI_API_KEY[:10]}...")
         self.content_analyzer = ContentAnalyzer(api_increment_callback=api_increment_callback)
         self.ugc_researcher = UGCResearcher(api_increment_callback=api_increment_callback)
         self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)

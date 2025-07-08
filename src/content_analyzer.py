@@ -7,11 +7,17 @@ from src.utils import Utils
 logger = logging.getLogger(__name__)
 
 class ContentAnalyzer:
-    """AI-powered content analysis and summarization"""
+    """Analyzes content using OpenAI's GPT models"""
     
     def __init__(self, api_increment_callback=None):
-        self.api_increment_callback = api_increment_callback
+        # Validate OpenAI API key
+        if not Config.OPENAI_API_KEY:
+            logger.error("OPENAI_API_KEY is not set in environment variables")
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        
+        logger.info(f"Initializing ContentAnalyzer with OpenAI API key: {Config.OPENAI_API_KEY[:10]}...")
         self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+        self.api_increment_callback = api_increment_callback
     
     def analyze_articles(self, articles: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze multiple articles and extract key insights"""

@@ -26,6 +26,13 @@ class UGCResearcher:
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
         })
+        
+        # Validate OpenAI API key
+        if not Config.OPENAI_API_KEY:
+            logger.error("OPENAI_API_KEY is not set in environment variables")
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        
+        logger.info(f"Initializing OpenAI client with API key: {Config.OPENAI_API_KEY[:10]}...")
         self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
         self.api_increment_callback = api_increment_callback
     

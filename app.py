@@ -28,6 +28,14 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Debug environment variables
+logger.info("=== Environment Debug Info ===")
+logger.info(f"OPENAI_API_KEY set: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
+if os.getenv('OPENAI_API_KEY'):
+    logger.info(f"OPENAI_API_KEY starts with: {os.getenv('OPENAI_API_KEY')[:10]}...")
+logger.info(f"Config.OPENAI_API_KEY: {'Set' if Config.OPENAI_API_KEY else 'Not set'}")
+logger.info("=== End Debug Info ===")
+
 # Global variable to store current job status
 current_job = {
     'status': 'idle',
