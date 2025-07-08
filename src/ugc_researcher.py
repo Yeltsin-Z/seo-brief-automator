@@ -18,23 +18,29 @@ class UGCResearcher:
     """Researches user-generated content from various platforms with AI-powered deep research"""
     
     def __init__(self, api_increment_callback=None):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': Utils.get_random_user_agent(),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-        })
-        
-        # Validate OpenAI API key
-        if not Config.OPENAI_API_KEY:
-            logger.error("OPENAI_API_KEY is not set in environment variables")
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        
-        logger.info(f"Initializing OpenAI client with API key: {Config.OPENAI_API_KEY[:10]}...")
-        self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
-        self.api_increment_callback = api_increment_callback
+        try:
+            logger.info("Initializing UGCResearcher...")
+            self.session = requests.Session()
+            self.session.headers.update({
+                'User-Agent': Utils.get_random_user_agent(),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+            })
+            
+            # Validate OpenAI API key
+            if not Config.OPENAI_API_KEY:
+                logger.error("OPENAI_API_KEY is not set in environment variables")
+                raise ValueError("OPENAI_API_KEY environment variable is required")
+            
+            logger.info(f"Initializing OpenAI client with API key: {Config.OPENAI_API_KEY[:10]}...")
+            self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+            self.api_increment_callback = api_increment_callback
+            logger.info("UGCResearcher initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing UGCResearcher: {e}")
+            raise
     
     def research_ugc_basic(self, focus_keyword: str, topic_theme: str, buyer_persona: str, custom_prompt: str = None) -> Dict[str, Any]:
         """Enhanced UGC research using ChatGPT with real-time data gathering and analysis"""

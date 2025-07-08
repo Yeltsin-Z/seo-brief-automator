@@ -52,7 +52,8 @@ class Utils:
         try:
             ua = UserAgent()
             return ua.random
-        except:
+        except Exception as e:
+            logger.warning(f"Failed to get random user agent: {e}. Using default.")
             return Config.USER_AGENT
     
     @staticmethod
