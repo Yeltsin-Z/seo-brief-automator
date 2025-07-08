@@ -91,7 +91,10 @@ Please provide your findings in this structured format:
 ## Recent Developments
 [Note any recent changes, updates, or new developments related to {focus_keyword}]
 
-Use clear, professional language and focus on actionable insights. Base your research on real discussions and current trends.
+## Sources & References
+[Include relevant URLs as proper markdown links: [Source Name](https://example.com)]
+
+Use clear, professional language and focus on actionable insights. Base your research on real discussions and current trends. When mentioning URLs, always format them as proper markdown links: [Link Text](URL).
 """
             
             # Call OpenAI ChatGPT for comprehensive research
@@ -158,6 +161,26 @@ Format your response in clear markdown with proper headings and bullet points.
             )
             
             analysis_content = analysis_response.choices[0].message.content.strip()
+            
+            # Post-process to convert plain URLs to markdown links
+            import re
+            def convert_urls_to_links(text):
+                # Pattern to match URLs
+                url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+                def replace_url(match):
+                    url = match.group(0)
+                    # Extract domain for link text
+                    from urllib.parse import urlparse
+                    try:
+                        domain = urlparse(url).netloc
+                        return f'[{domain}]({url})'
+                    except:
+                        return f'[Link]({url})'
+                return re.sub(url_pattern, replace_url, text)
+            
+            # Convert URLs in both research and analysis content
+            initial_research = convert_urls_to_links(initial_research)
+            analysis_content = convert_urls_to_links(analysis_content)
             
             # Combine research and analysis
             combined_content = f"""
@@ -425,7 +448,7 @@ Format your response in clear markdown with proper headings and bullet points.
                 url = result.get('url', '').strip()
                 if title and url and url.startswith('http'):
                     count += 1
-                    urls_list.append(f"{count}. {title} - {url}")
+                    urls_list.append(f"{count}. **{title}** - [{url}]({url})")
                     if count == 10:
                         break
             urls_text = "\n".join(urls_list)
