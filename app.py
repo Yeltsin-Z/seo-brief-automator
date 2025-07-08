@@ -34,6 +34,16 @@ logger.info(f"OPENAI_API_KEY set: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No
 if os.getenv('OPENAI_API_KEY'):
     logger.info(f"OPENAI_API_KEY starts with: {os.getenv('OPENAI_API_KEY')[:10]}...")
 logger.info(f"Config.OPENAI_API_KEY: {'Set' if Config.OPENAI_API_KEY else 'Not set'}")
+
+# Check for proxy-related environment variables
+proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'NO_PROXY', 'no_proxy']
+for var in proxy_vars:
+    value = os.getenv(var)
+    if value:
+        logger.info(f"{var}: {value}")
+    else:
+        logger.info(f"{var}: Not set")
+
 logger.info("=== End Debug Info ===")
 
 # Global variable to store current job status

@@ -20,7 +20,9 @@ class UGCResearcher:
     def __init__(self, api_increment_callback=None):
         try:
             logger.info("Initializing UGCResearcher...")
+            logger.info("Creating requests session...")
             self.session = requests.Session()
+            logger.info("Setting session headers...")
             self.session.headers.update({
                 'User-Agent': Utils.get_random_user_agent(),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -30,12 +32,19 @@ class UGCResearcher:
             })
             
             # Validate OpenAI API key
+            logger.info("Validating OpenAI API key...")
             if not Config.OPENAI_API_KEY:
                 logger.error("OPENAI_API_KEY is not set in environment variables")
                 raise ValueError("OPENAI_API_KEY environment variable is required")
             
             logger.info(f"Initializing OpenAI client with API key: {Config.OPENAI_API_KEY[:10]}...")
-            self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+            try:
+                self.client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+                logger.info("OpenAI client created successfully")
+            except Exception as openai_error:
+                logger.error(f"Error creating OpenAI client: {openai_error}")
+                raise
+            
             self.api_increment_callback = api_increment_callback
             logger.info("UGCResearcher initialized successfully")
         except Exception as e:
